@@ -37,15 +37,10 @@ fn get_file_size(path: &String) -> u64 {
     metadata.len()
 }
 
-fn main() -> io::Result<()> {
-    let args = Cli::from_args();
+fn get_files(starting_point: String) -> Vec<String> {
+    let mut files: Vec<String> = Vec::new();
 
-    let mut hash_dirs: HashMap<u32, HashSet<String>> = HashMap::new();
-    let mut dir_hashes: HashMap<String, HashSet<u32>> = HashMap::new();
-
-    let mut paths: Vec<String> = Vec::new();
-
-    let starting_points: Vec<&str> = args.starting_point.split(",").collect();
+    let starting_points: Vec<&str> = starting_point.split(",").collect();
     for starting_point in starting_points {
         for entry in WalkDir::new(starting_point)
             .into_iter()
@@ -53,35 +48,47 @@ fn main() -> io::Result<()> {
             .filter(|e| e.file_type().is_file())
         {
             let path = String::from(entry.path().to_string_lossy());
-            paths.push(path);
+            files.push(path);
         }
     }
+    files
+}
 
-    let files_cnt = paths.len();
+fn main() -> io::Result<()> {
+    let args = Cli::from_args();
+
+    let mut hash_dirs: HashMap<u32, HashSet<String>> = HashMap::new();
+    let mut dir_hashes: HashMap<String, HashSet<u32>> = HashMap::new();
+
+    let files = get_files(args.starting_point);
+
+    let files_cnt = files.len();
     println!("Found: {} files", files_cnt);
 
     let mut i = 0;
-    for path in paths.iter() {
-        if get_file_size(path) < args.min_size {
+    for file in files.iter() {
+        if get_file_size(file) < args.min_size {
             continue;
         }
 
-        let dir = String::from(Path::new(path).parent().unwrap().to_string_lossy());
-        let hash = get_hash(path.clone());
+        let dir = String::from(Path::new(file).parent().unwrap().to_string_lossy());
+        let hash = get_hash(file.clone());
 
-        let mut dirs = HashSet::new();
-        if let Some(val) = hash_dirs.get(&hash) {
-            dirs = val.clone();
+        if let Some(val) = hash_dirs.get_mut(&hash) {
+            val.insert(dir.clone());
+        } else {
+            let mut dirs = HashSet::new();
+            dirs.insert(dir.clone());
+            hash_dirs.insert(hash.clone(), dirs);
         }
-        dirs.insert(dir.clone());
-        hash_dirs.insert(hash.clone(), dirs);
 
-        let mut hashes = HashSet::new();
-        if let Some(val) = dir_hashes.get(&dir) {
-            hashes = val.clone();
+        if let Some(val) = dir_hashes.get_mut(&dir) {
+            val.insert(hash.clone());
+        } else {
+            let mut hashes = HashSet::new();
+            hashes.insert(hash.clone());
+            dir_hashes.insert(dir, hashes);
         }
-        hashes.insert(hash.clone());
-        dir_hashes.insert(dir, hashes);
 
         if i % (files_cnt / 100) == 0 {
             print!(".");
