@@ -10,7 +10,7 @@ use walkdir::WalkDir;
 
 #[derive(StructOpt)]
 struct Cli {
-    path: String,
+    starting_point: String,
     number: usize,
     min_size: u64,
 }
@@ -31,6 +31,12 @@ fn get_hash(filename: String) -> u32 {
     hasher.finalize()
 }
 
+fn get_file_size(path: &String) -> u64 {
+    let f = File::open(path).unwrap();
+    let metadata = f.metadata().unwrap();
+    metadata.len()
+}
+
 fn main() -> io::Result<()> {
     let args = Cli::from_args();
 
@@ -39,23 +45,24 @@ fn main() -> io::Result<()> {
 
     let mut paths: Vec<String> = Vec::new();
 
-    for entry in WalkDir::new(args.path)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-    {
-        let path = String::from(entry.path().to_string_lossy());
-        paths.push(path);
+    let starting_points: Vec<&str> = args.starting_point.split(",").collect();
+    for starting_point in starting_points {
+        for entry in WalkDir::new(starting_point)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+        {
+            let path = String::from(entry.path().to_string_lossy());
+            paths.push(path);
+        }
     }
 
     let files_cnt = paths.len();
     println!("Found: {} files", files_cnt);
+
     let mut i = 0;
     for path in paths.iter() {
-        let f = File::open(path)?;
-        let metadata = f.metadata()?;
-        let size = metadata.len();
-        if size < args.min_size {
+        if get_file_size(path) < args.min_size {
             continue;
         }
 
