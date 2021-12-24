@@ -4,6 +4,11 @@ use std::fs::File;
 use std::io::{self, prelude::*};
 use walkdir::WalkDir;
 
+// TODO: get list of files first, then show progress in %
+// TODO: handle errors
+// TODO: command line arguments: dirname, minimal intersection number
+// TODO: min file size
+
 fn get_hash(filename: String) -> u32 {
     let mut f = File::open(filename).unwrap();
     let mut hasher = Hasher::new();
@@ -24,7 +29,8 @@ fn main() -> io::Result<()> {
     let mut hash_dirs: HashMap<u32, HashSet<String>> = HashMap::new();
     let mut dir_hashes: HashMap<String, HashSet<u32>> = HashMap::new();
 
-    for entry in WalkDir::new("/home/ilya/Pictures")
+    let mut i = 0;
+    for entry in WalkDir::new("/home/ilya/backup")
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
@@ -46,6 +52,12 @@ fn main() -> io::Result<()> {
         }
         hashes.insert(hash.clone());
         dir_hashes.insert(dir, hashes);
+
+        if i % 100 == 0 {
+            print!(".");
+            io::stdout().flush().unwrap();
+        }
+        i += 1;
     }
 
     let mut printed = HashSet::new();
