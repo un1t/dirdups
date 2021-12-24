@@ -1,9 +1,47 @@
+use crc32fast::Hasher;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 use std::vec::Vec;
+use walkdir::WalkDir;
+
+fn get_hash(filename: String) -> u32 {
+    let mut f = File::open(filename).unwrap();
+    let mut hasher = Hasher::new();
+    let mut buffer: [u8; 1024] = [0; 1024];
+
+    loop {
+        let n = f.read(&mut buffer[..]).unwrap();
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buffer[0..n]);
+    }
+    hasher.finalize()
+}
 
 fn main() -> io::Result<()> {
+    let file_hash: HashMap<String, u32> = HashMap::new();
+    let hash_files: HashMap<u32, Vec<String>> = HashMap::new();
+
+    for entry in WalkDir::new("..")
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| !e.file_type().is_dir())
+    {
+        let fullname = String::from(entry.path().to_string_lossy());
+        let filename = String::from(entry.file_name().to_string_lossy());
+        let dirname = String::from(entry.path().parent().unwrap().to_string_lossy());
+
+        println!("{} {}", dirname, filename);
+        let checksum = get_hash(fullname.clone());
+        println!("{} {}", fullname, checksum);
+
+        // break;
+    }
+
+    // return Ok(());
+
     let mut file_dirs: HashMap<String, Vec<String>> = HashMap::new();
     let mut dir_files: HashMap<String, HashSet<String>> = HashMap::new();
 
