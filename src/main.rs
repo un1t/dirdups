@@ -2,17 +2,17 @@ use crc32fast::Hasher;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, prelude::*};
+use std::path::Path;
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
-// TODO: get list of files first, then show progress in %
 // TODO: handle errors
-// TODO: min file size
 
 #[derive(StructOpt)]
 struct Cli {
     path: String,
     number: usize,
+    min_size: u64,
 }
 
 fn get_hash(filename: String) -> u32 {
@@ -37,14 +37,29 @@ fn main() -> io::Result<()> {
     let mut hash_dirs: HashMap<u32, HashSet<String>> = HashMap::new();
     let mut dir_hashes: HashMap<String, HashSet<u32>> = HashMap::new();
 
-    let mut i = 0;
+    let mut paths: Vec<String> = Vec::new();
+
     for entry in WalkDir::new(args.path)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
     {
         let path = String::from(entry.path().to_string_lossy());
-        let dir = String::from(entry.path().parent().unwrap().to_string_lossy());
+        paths.push(path);
+    }
+
+    let files_cnt = paths.len();
+    println!("Found: {} files", files_cnt);
+    let mut i = 0;
+    for path in paths.iter() {
+        let f = File::open(path)?;
+        let metadata = f.metadata()?;
+        let size = metadata.len();
+        if size < args.min_size {
+            continue;
+        }
+
+        let dir = String::from(Path::new(path).parent().unwrap().to_string_lossy());
         let hash = get_hash(path.clone());
 
         let mut dirs = HashSet::new();
@@ -61,12 +76,13 @@ fn main() -> io::Result<()> {
         hashes.insert(hash.clone());
         dir_hashes.insert(dir, hashes);
 
-        if i % 100 == 0 {
+        if i % (files_cnt / 100) == 0 {
             print!(".");
             io::stdout().flush().unwrap();
         }
         i += 1;
     }
+    println!("");
 
     let mut printed = HashSet::new();
 
