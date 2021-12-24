@@ -2,12 +2,18 @@ use crc32fast::Hasher;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, prelude::*};
+use structopt::StructOpt;
 use walkdir::WalkDir;
 
 // TODO: get list of files first, then show progress in %
 // TODO: handle errors
-// TODO: command line arguments: dirname, minimal intersection number
 // TODO: min file size
+
+#[derive(StructOpt)]
+struct Cli {
+    path: String,
+    number: usize,
+}
 
 fn get_hash(filename: String) -> u32 {
     let mut f = File::open(filename).unwrap();
@@ -26,11 +32,13 @@ fn get_hash(filename: String) -> u32 {
 }
 
 fn main() -> io::Result<()> {
+    let args = Cli::from_args();
+
     let mut hash_dirs: HashMap<u32, HashSet<String>> = HashMap::new();
     let mut dir_hashes: HashMap<String, HashSet<u32>> = HashMap::new();
 
     let mut i = 0;
-    for entry in WalkDir::new("/home/ilya/backup")
+    for entry in WalkDir::new(args.path)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
@@ -75,7 +83,7 @@ fn main() -> io::Result<()> {
                 let files1 = dir_hashes.get(dir).unwrap();
                 let files2 = dir_hashes.get(prev_dir).unwrap();
                 let intersection: HashSet<_> = files1.intersection(&files2).collect();
-                if intersection.len() > 10 {
+                if intersection.len() > args.number {
                     println!("{} - {} | {}", dir, prev_dir, intersection.len())
                 }
                 printed.insert(dir);
