@@ -6,9 +6,7 @@ use std::path::Path;
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
-// TODO: handle errors
 // TODO: read_first_bytes
-// TODO: handle permission denied
 
 #[derive(StructOpt)]
 struct Cli {
@@ -46,25 +44,25 @@ struct Cli {
     directories: Vec<String>,
 }
 
-fn get_hash(filename: String, filesize: u64, read_first_bytes: u64) -> u64 {
-    let crc32 = get_crc32_checksum(filename, read_first_bytes);
-    crc32 as u64 + filesize as u64
+fn get_hash(filename: String, filesize: u64, read_first_bytes: u64) -> io::Result<u64> {
+    let crc32 = get_crc32_checksum(filename, read_first_bytes)?;
+    Ok(crc32 as u64 + filesize as u64)
 }
 
-fn get_crc32_checksum(filename: String, read_first_bytes: u64) -> u32 {
-    let mut f = File::open(filename).unwrap();
+fn get_crc32_checksum(filename: String, read_first_bytes: u64) -> io::Result<u32> {
+    let mut f = File::open(filename)?;
     let mut hasher = Hasher::new();
     const BUF_SIZE: usize = 1024;
     let mut buffer: [u8; BUF_SIZE] = [0; BUF_SIZE];
 
     loop {
-        let n = f.read(&mut buffer[..]).unwrap();
+        let n = f.read(&mut buffer[..])?;
         if n == 0 {
             break;
         }
         hasher.update(&buffer[0..n]);
     }
-    hasher.finalize()
+    Ok(hasher.finalize())
 }
 
 fn get_file_size(path: &String) -> io::Result<u64> {
@@ -103,7 +101,7 @@ fn main() {
         let filesize = match get_file_size(file) {
             Ok(filesize) => filesize,
             Err(e) => {
-                eprintln!("Problem with getting file size of {}: {}", file, e);
+                eprintln!("Error: {}: {}", file, e);
                 continue;
             }
         };
@@ -111,8 +109,17 @@ fn main() {
             continue;
         }
 
-        let dir = String::from(Path::new(file).parent().unwrap().to_string_lossy());
-        let hash = get_hash(file.clone(), filesize, args.head);
+        let dir: String = match Path::new(file).parent() {
+            Some(path) => String::from(path.to_string_lossy()),
+            None => String::from(""),
+        };
+        let hash = match get_hash(file.clone(), filesize, args.head) {
+            Ok(hash) => hash,
+            Err(e) => {
+                eprintln!("Error: {}: {}", file, e);
+                continue;
+            }
+        };
 
         if let Some(val) = hash_dirs.get_mut(&hash) {
             val.insert(dir.clone());
@@ -132,7 +139,7 @@ fn main() {
 
         if i % (files_cnt / 100) == 0 {
             print!(".");
-            io::stdout().flush().unwrap();
+            io::stdout().flush().ok();
         }
         i += 1;
     }
