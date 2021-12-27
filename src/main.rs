@@ -107,17 +107,22 @@ fn main() -> io::Result<()> {
         let mut i = 0;
         for dir in dirs.iter() {
             if i > 0 {
-                if printed.contains(dir) && printed.contains(prev_dir) {
+                let t = if *dir < *prev_dir {
+                    (dir, prev_dir)
+                } else {
+                    (prev_dir, dir)
+                };
+                if printed.contains(&t) {
                     continue;
                 }
+
                 let files1 = dir_hashes.get(dir).unwrap();
                 let files2 = dir_hashes.get(prev_dir).unwrap();
                 let intersection: HashSet<_> = files1.intersection(&files2).collect();
                 if intersection.len() > args.number {
                     println!("{} - {} | {}", dir, prev_dir, intersection.len())
                 }
-                printed.insert(dir);
-                printed.insert(prev_dir);
+                printed.insert(t);
             }
             prev_dir = dir;
             i += 1;
