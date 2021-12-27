@@ -186,7 +186,7 @@ fn main() {
                 let files = dir_hashes.get(dir).unwrap();
                 let prev_files = dir_hashes.get(prev_dir).unwrap();
                 let intersection: HashSet<_> = files.intersection(&prev_files).collect();
-                if intersection.len() > args.min_intersection {
+                if intersection.len() >= args.min_intersection {
                     println!(
                         "{}: {} - {}: {} | {}",
                         dir,
