@@ -7,18 +7,29 @@ use structopt::StructOpt;
 use walkdir::WalkDir;
 
 // TODO: handle errors
+// TODO: read_first_bytes
 
 #[derive(StructOpt)]
 struct Cli {
-    starting_point: String,
-    number: usize,
+    #[structopt(short="m", long, required = true, default_value = "1")]
     min_size: u64,
+
+    #[structopt(short="i", long, required = true, default_value = "10")]
+    min_intersection: usize,
+
+    #[structopt(long, required = true, index = 1)]
+    directories: Vec<String>,
 }
 
-fn get_hash(filename: String) -> u32 {
+fn get_hash(filename: String, filesize: u64, read_first_bytes: u32) -> u64 {
+    let crc32 = get_crc32_checksum(filename, read_first_bytes);
+    crc32 as u64 + filesize as u64
+}
+
+fn get_crc32_checksum(filename: String, read_first_bytes: u32) -> u32 {
     let mut f = File::open(filename).unwrap();
     let mut hasher = Hasher::new();
-    const BUF_SIZE: usize = 1024 * 1024;
+    const BUF_SIZE: usize = 1024;
     let mut buffer: [u8; BUF_SIZE] = [0; BUF_SIZE];
 
     loop {
@@ -37,12 +48,11 @@ fn get_file_size(path: &String) -> u64 {
     metadata.len()
 }
 
-fn get_files(starting_point: String) -> Vec<String> {
+fn get_files(directories: Vec<String>) -> Vec<String> {
     let mut files: Vec<String> = Vec::new();
 
-    let starting_points: Vec<&str> = starting_point.split(",").collect();
-    for starting_point in starting_points {
-        for entry in WalkDir::new(starting_point)
+    for directory in directories.iter() {
+        for entry in WalkDir::new(directory)
             .into_iter()
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
@@ -57,22 +67,23 @@ fn get_files(starting_point: String) -> Vec<String> {
 fn main() -> io::Result<()> {
     let args = Cli::from_args();
 
-    let mut hash_dirs: HashMap<u32, HashSet<String>> = HashMap::new();
-    let mut dir_hashes: HashMap<String, HashSet<u32>> = HashMap::new();
+    let mut hash_dirs: HashMap<u64, HashSet<String>> = HashMap::new();
+    let mut dir_hashes: HashMap<String, HashSet<u64>> = HashMap::new();
 
-    let files = get_files(args.starting_point);
+    let files = get_files(args.directories);
 
     let files_cnt = files.len();
     println!("Found: {} files", files_cnt);
 
     let mut i = 0;
     for file in files.iter() {
-        if get_file_size(file) < args.min_size {
+        let filesize = get_file_size(file);
+        if filesize < args.min_size {
             continue;
         }
 
         let dir = String::from(Path::new(file).parent().unwrap().to_string_lossy());
-        let hash = get_hash(file.clone());
+        let hash = get_hash(file.clone(), filesize, 0);
 
         if let Some(val) = hash_dirs.get_mut(&hash) {
             val.insert(dir.clone());
@@ -119,7 +130,7 @@ fn main() -> io::Result<()> {
                 let files1 = dir_hashes.get(dir).unwrap();
                 let files2 = dir_hashes.get(prev_dir).unwrap();
                 let intersection: HashSet<_> = files1.intersection(&files2).collect();
-                if intersection.len() > args.number {
+                if intersection.len() > args.min_intersection {
                     println!("{} - {} | {}", dir, prev_dir, intersection.len())
                 }
                 printed.insert(t);
