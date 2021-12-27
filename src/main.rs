@@ -35,7 +35,7 @@ struct Cli {
         long,
         required = true,
         default_value = "1024",
-        help = "Reads only N bytes to calculate checksum"
+        help = "Reads only N bytes to calculate checksum. Set 0 to read full file."
     )]
     head: String,
 
@@ -89,30 +89,13 @@ fn get_files(directories: Vec<String>) -> Vec<String> {
     files
 }
 
-fn main() {
-    let args = Cli::from_args();
-
-    let min_size = match args.min_size.parse::<Bytes>() {
-        Ok(some) => some.size(),
-        Err(_) => {
-            eprintln!("Invalid value for '--min-size': {}.", args.min_size);
-            return;
-        }
-    };
-
-    let head = match args.head.parse::<Bytes>() {
-        Ok(some) => some.size(),
-        Err(_) => {
-            eprintln!("Invalid value for '--head': {}.", args.min_size);
-            return;
-        }
-    };
-
-    let mut hash_dirs: HashMap<u64, HashSet<String>> = HashMap::new();
-    let mut dir_hashes: HashMap<String, HashSet<u64>> = HashMap::new();
-
-    let files = get_files(args.directories);
-
+fn load_files_info(
+    files: &Vec<String>,
+    min_size: usize,
+    head: usize,
+    hash_dirs: &mut HashMap<u64, HashSet<String>>,
+    dir_hashes: &mut HashMap<String, HashSet<u64>>,
+) {
     let files_cnt = files.len();
     println!("Found: {} files", files_cnt);
 
@@ -164,7 +147,13 @@ fn main() {
         i += 1;
     }
     println!("");
+}
 
+fn print_duplicates(
+    min_intersection: usize,
+    hash_dirs: &HashMap<u64, HashSet<String>>,
+    dir_hashes: &HashMap<String, HashSet<u64>>,
+) {
     let mut printed = HashSet::new();
 
     let hack = String::from(""); // Fixes "borrow of possibly-uninitialized variable"
@@ -182,11 +171,10 @@ fn main() {
                 if printed.contains(&t) {
                     continue;
                 }
-
                 let files = dir_hashes.get(dir).unwrap();
                 let prev_files = dir_hashes.get(prev_dir).unwrap();
                 let intersection: HashSet<_> = files.intersection(&prev_files).collect();
-                if intersection.len() >= args.min_intersection {
+                if intersection.len() >= min_intersection {
                     println!(
                         "{}: {} - {}: {} | {}",
                         dir,
@@ -202,4 +190,36 @@ fn main() {
             i += 1;
         }
     }
+}
+
+fn main() {
+    let args = Cli::from_args();
+
+    let min_size = match args.min_size.parse::<Bytes>() {
+        Ok(some) => some.size(),
+        Err(_) => {
+            eprintln!("Invalid value for '--min-size': {}.", args.min_size);
+            return;
+        }
+    };
+
+    let head = match args.head.parse::<Bytes>() {
+        Ok(some) => some.size(),
+        Err(_) => {
+            eprintln!("Invalid value for '--head': {}.", args.min_size);
+            return;
+        }
+    };
+    if head > 0 && head < 1000 {
+        eprintln!(
+            "Warning!: --min-size values >0 and <1000 are ignored. Default value of 1024 is used."
+        );
+    }
+
+    let mut hash_dirs: HashMap<u64, HashSet<String>> = HashMap::new();
+    let mut dir_hashes: HashMap<String, HashSet<u64>> = HashMap::new();
+
+    let files = get_files(args.directories);
+    load_files_info(&files, min_size, head, &mut hash_dirs, &mut dir_hashes);
+    print_duplicates(args.min_intersection, &hash_dirs, &dir_hashes);
 }
