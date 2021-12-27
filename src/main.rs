@@ -8,6 +8,7 @@ use walkdir::WalkDir;
 
 // TODO: handle errors
 // TODO: read_first_bytes
+// TODO: handle permission denied
 
 #[derive(StructOpt)]
 struct Cli {
@@ -41,7 +42,7 @@ struct Cli {
     )]
     head: u64,
 
-    #[structopt(long, required = true, index = 1, help="Directories to search")]
+    #[structopt(long, required = true, index = 1, help = "Directories to search")]
     directories: Vec<String>,
 }
 
@@ -66,10 +67,8 @@ fn get_crc32_checksum(filename: String, read_first_bytes: u64) -> u32 {
     hasher.finalize()
 }
 
-fn get_file_size(path: &String) -> u64 {
-    let f = File::open(path).unwrap();
-    let metadata = f.metadata().unwrap();
-    metadata.len()
+fn get_file_size(path: &String) -> io::Result<u64> {
+    Ok(File::open(path)?.metadata()?.len())
 }
 
 fn get_files(directories: Vec<String>) -> Vec<String> {
@@ -88,7 +87,7 @@ fn get_files(directories: Vec<String>) -> Vec<String> {
     files
 }
 
-fn main() -> io::Result<()> {
+fn main() {
     let args = Cli::from_args();
 
     let mut hash_dirs: HashMap<u64, HashSet<String>> = HashMap::new();
@@ -101,7 +100,13 @@ fn main() -> io::Result<()> {
 
     let mut i = 0;
     for file in files.iter() {
-        let filesize = get_file_size(file);
+        let filesize = match get_file_size(file) {
+            Ok(filesize) => filesize,
+            Err(e) => {
+                eprintln!("Problem with getting file size of {}: {}", file, e);
+                continue;
+            }
+        };
         if filesize < args.min_size {
             continue;
         }
@@ -163,6 +168,4 @@ fn main() -> io::Result<()> {
             i += 1;
         }
     }
-
-    Ok(())
 }
