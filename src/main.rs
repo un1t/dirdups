@@ -11,22 +11,46 @@ use walkdir::WalkDir;
 
 #[derive(StructOpt)]
 struct Cli {
-    #[structopt(short="m", long, required = true, default_value = "1")]
+    #[structopt(
+        short = "m",
+        value_name = "N",
+        long,
+        required = true,
+        default_value = "1",
+        help = "Ignore files which is smaller than this size"
+    )]
     min_size: u64,
 
-    #[structopt(short="i", long, required = true, default_value = "10")]
+    #[structopt(
+        short = "i",
+        value_name = "N",
+        long,
+        required = true,
+        default_value = "10",
+        help = "How many equal files must be in 2 directories to consider those directories as duplicates"
+    )]
     min_intersection: usize,
 
-    #[structopt(long, required = true, index = 1)]
+    #[structopt(
+        short = "h",
+        value_name = "N",
+        long,
+        required = true,
+        default_value = "1024",
+        help = "Reads only N bytes to calculate checksum"
+    )]
+    head: u64,
+
+    #[structopt(long, required = true, index = 1, help="Directories to search")]
     directories: Vec<String>,
 }
 
-fn get_hash(filename: String, filesize: u64, read_first_bytes: u32) -> u64 {
+fn get_hash(filename: String, filesize: u64, read_first_bytes: u64) -> u64 {
     let crc32 = get_crc32_checksum(filename, read_first_bytes);
     crc32 as u64 + filesize as u64
 }
 
-fn get_crc32_checksum(filename: String, read_first_bytes: u32) -> u32 {
+fn get_crc32_checksum(filename: String, read_first_bytes: u64) -> u32 {
     let mut f = File::open(filename).unwrap();
     let mut hasher = Hasher::new();
     const BUF_SIZE: usize = 1024;
@@ -83,7 +107,7 @@ fn main() -> io::Result<()> {
         }
 
         let dir = String::from(Path::new(file).parent().unwrap().to_string_lossy());
-        let hash = get_hash(file.clone(), filesize, 0);
+        let hash = get_hash(file.clone(), filesize, args.head);
 
         if let Some(val) = hash_dirs.get_mut(&hash) {
             val.insert(dir.clone());
