@@ -1,4 +1,5 @@
 use crc32fast::Hasher;
+use humanize_rs::bytes::Bytes;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, prelude::*};
@@ -16,7 +17,7 @@ struct Cli {
         default_value = "1",
         help = "Ignore files which is smaller than this size"
     )]
-    min_size: u64,
+    min_size: String,
 
     #[structopt(
         short = "i",
@@ -36,13 +37,13 @@ struct Cli {
         default_value = "1024",
         help = "Reads only N bytes to calculate checksum"
     )]
-    head: usize,
+    head: String,
 
     #[structopt(long, required = true, index = 1, help = "Directories to search")]
     directories: Vec<String>,
 }
 
-fn get_hash(filename: String, filesize: u64, read_first_bytes: usize) -> io::Result<u64> {
+fn get_hash(filename: String, filesize: usize, read_first_bytes: usize) -> io::Result<u64> {
     let crc32 = get_crc32_checksum(filename, read_first_bytes)?;
     Ok(crc32 as u64 + filesize as u64)
 }
@@ -55,7 +56,7 @@ fn get_crc32_checksum(filename: String, read_first_bytes: usize) -> io::Result<u
 
     let mut bytes_readed = 0;
     loop {
-        if read_first_bytes >= 1024 && bytes_readed >= read_first_bytes {
+        if read_first_bytes >= 1000 && bytes_readed >= read_first_bytes {
             break;
         }
         let n = f.read(&mut buffer[..])?;
@@ -68,8 +69,8 @@ fn get_crc32_checksum(filename: String, read_first_bytes: usize) -> io::Result<u
     Ok(hasher.finalize())
 }
 
-fn get_file_size(path: &String) -> io::Result<u64> {
-    Ok(File::open(path)?.metadata()?.len())
+fn get_file_size(path: &String) -> io::Result<usize> {
+    Ok(File::open(path)?.metadata()?.len() as usize)
 }
 
 fn get_files(directories: Vec<String>) -> Vec<String> {
@@ -91,6 +92,22 @@ fn get_files(directories: Vec<String>) -> Vec<String> {
 fn main() {
     let args = Cli::from_args();
 
+    let min_size = match args.min_size.parse::<Bytes>() {
+        Ok(some) => some.size(),
+        Err(_) => {
+            eprintln!("Invalid value for '--min-size': {}.", args.min_size);
+            return;
+        }
+    };
+
+    let head = match args.head.parse::<Bytes>() {
+        Ok(some) => some.size(),
+        Err(_) => {
+            eprintln!("Invalid value for '--head': {}.", args.min_size);
+            return;
+        }
+    };
+
     let mut hash_dirs: HashMap<u64, HashSet<String>> = HashMap::new();
     let mut dir_hashes: HashMap<String, HashSet<u64>> = HashMap::new();
 
@@ -108,7 +125,7 @@ fn main() {
                 continue;
             }
         };
-        if filesize < args.min_size {
+        if filesize < min_size {
             continue;
         }
 
@@ -116,7 +133,7 @@ fn main() {
             Some(path) => String::from(path.to_string_lossy()),
             None => String::from(""),
         };
-        let hash = match get_hash(file.clone(), filesize, args.head) {
+        let hash = match get_hash(file.clone(), filesize, head) {
             Ok(hash) => hash,
             Err(e) => {
                 eprintln!("Error: {}: {}", file, e);
@@ -166,11 +183,18 @@ fn main() {
                     continue;
                 }
 
-                let files1 = dir_hashes.get(dir).unwrap();
-                let files2 = dir_hashes.get(prev_dir).unwrap();
-                let intersection: HashSet<_> = files1.intersection(&files2).collect();
+                let files = dir_hashes.get(dir).unwrap();
+                let prev_files = dir_hashes.get(prev_dir).unwrap();
+                let intersection: HashSet<_> = files.intersection(&prev_files).collect();
                 if intersection.len() > args.min_intersection {
-                    println!("{} - {} | {}", dir, prev_dir, intersection.len())
+                    println!(
+                        "{}: {} - {}: {} | {}",
+                        dir,
+                        files.len(),
+                        prev_dir,
+                        prev_files.len(),
+                        intersection.len()
+                    )
                 }
                 printed.insert(t);
             }

@@ -63,6 +63,7 @@ name = "dups"
 version = "0.1.0"
 dependencies = [
  "crc32fast",
+ "humanize-rs",
  "structopt",
  "walkdir",
 ]
@@ -84,6 +85,12 @@ checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "humanize-rs"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "016b02deb8b0c415d8d56a6f0ab265e50c22df61194e37f9be75ed3a722de8a6"
 
 [[package]]
 name = "lazy_static"
