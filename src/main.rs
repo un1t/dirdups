@@ -6,8 +6,6 @@ use std::path::Path;
 use structopt::StructOpt;
 use walkdir::WalkDir;
 
-// TODO: read_first_bytes
-
 #[derive(StructOpt)]
 struct Cli {
     #[structopt(
@@ -38,29 +36,34 @@ struct Cli {
         default_value = "1024",
         help = "Reads only N bytes to calculate checksum"
     )]
-    head: u64,
+    head: usize,
 
     #[structopt(long, required = true, index = 1, help = "Directories to search")]
     directories: Vec<String>,
 }
 
-fn get_hash(filename: String, filesize: u64, read_first_bytes: u64) -> io::Result<u64> {
+fn get_hash(filename: String, filesize: u64, read_first_bytes: usize) -> io::Result<u64> {
     let crc32 = get_crc32_checksum(filename, read_first_bytes)?;
     Ok(crc32 as u64 + filesize as u64)
 }
 
-fn get_crc32_checksum(filename: String, read_first_bytes: u64) -> io::Result<u32> {
+fn get_crc32_checksum(filename: String, read_first_bytes: usize) -> io::Result<u32> {
     let mut f = File::open(filename)?;
     let mut hasher = Hasher::new();
     const BUF_SIZE: usize = 1024;
     let mut buffer: [u8; BUF_SIZE] = [0; BUF_SIZE];
 
+    let mut bytes_readed = 0;
     loop {
+        if read_first_bytes >= 1024 && bytes_readed >= read_first_bytes {
+            break;
+        }
         let n = f.read(&mut buffer[..])?;
         if n == 0 {
             break;
         }
         hasher.update(&buffer[0..n]);
+        bytes_readed += n;
     }
     Ok(hasher.finalize())
 }
