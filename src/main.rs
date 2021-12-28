@@ -156,38 +156,37 @@ fn print_duplicates(
 ) {
     let mut printed = HashSet::new();
 
-    let hack = String::from(""); // Fixes "borrow of possibly-uninitialized variable"
-
     for (_, dirs) in hash_dirs.iter() {
-        let mut prev_dir: &String = &hack;
-        let mut i = 0;
-        for dir in dirs.iter() {
-            if i > 0 {
-                let t = if *dir < *prev_dir {
-                    (dir, prev_dir)
-                } else {
-                    (prev_dir, dir)
-                };
-                if printed.contains(&t) {
-                    continue;
-                }
-                let files = dir_hashes.get(dir).unwrap();
-                let prev_files = dir_hashes.get(prev_dir).unwrap();
-                let intersection: HashSet<_> = files.intersection(&prev_files).collect();
-                if intersection.len() >= min_intersection {
-                    println!(
-                        "{}: {} - {}: {} | {}",
-                        dir,
-                        files.len(),
-                        prev_dir,
-                        prev_files.len(),
-                        intersection.len()
-                    )
-                }
-                printed.insert(t);
+        let mut dirs_iter = dirs.iter();
+        let mut prev_dir: &String = match dirs_iter.next() {
+            Some(v) => v,
+            None => break,
+        };
+
+        for dir in dirs_iter {
+            let t = if *dir < *prev_dir {
+                (dir, prev_dir)
+            } else {
+                (prev_dir, dir)
+            };
+            if printed.contains(&t) {
+                continue;
             }
+            let files = dir_hashes.get(dir).unwrap();
+            let prev_files = dir_hashes.get(prev_dir).unwrap();
+            let intersection: HashSet<_> = files.intersection(&prev_files).collect();
+            if intersection.len() >= min_intersection {
+                println!(
+                    "{}: {} - {}: {} | {}",
+                    dir,
+                    files.len(),
+                    prev_dir,
+                    prev_files.len(),
+                    intersection.len()
+                )
+            }
+            printed.insert(t);
             prev_dir = dir;
-            i += 1;
         }
     }
 }
