@@ -1,6 +1,6 @@
-# Dups - fast search for duplicated directories
+# dirdups - fast search for duplicated directories
 
-dups is CLI tool that searches different directories which contains the same files.
+dirdups is CLI tool that searches different directories which contains the same files.
 
 I build this tool to declatter my photo/video collection which had more than 50k files and ocuppied 300GB of disk space.
 
@@ -11,33 +11,33 @@ For comparing files it uses CRC32 algorithm and checks file sizes. By default it
 1. Install Rust https://www.rust-lang.org/tools/install
 2. Build from source
 ```
-git clone git@github.com:un1t/dups.git
-cd dups
+git clone git@github.com:un1t/dirdups.git
+cd dirdups
 cargo build --release
 ```
-target/release/**dups** is a binary executable file that now can be copied to any place.
+target/release/**dirdups** is a binary executable file that now can be copied to any place.
 
 ## Usage
 1. Basic usage:
 ```
-$ dups ~/Pictures
+$ dirdups ~/Pictures
 ```
 
 2. Multiple locations:
 ```
-$ dups ~/Pictures ~/Documents
+$ dirdups ~/Pictures ~/Documents
 ```
 
 3. Minimum file size:
 ```
-$ dups ~/Pictures -m 100KB
+$ dirdups ~/Pictures -m 100KB
 ```
 
 ## Help
 
 ```
 USAGE:
-    dups <directories>... --head <N> --min-intersection <N> --min-size <N>
+    dirdups <directories>... --head <N> --min-intersection <N> --min-size <N>
 
 FLAGS:
         --help       Prints help information
