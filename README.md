@@ -1,8 +1,8 @@
 # dirdups - fast search for duplicated directories
 
-dirdups is CLI tool that searches different directories which contains the same files.
+dirdups is CLI tool that searches different directories containing the same files.
 
-I build this tool to declatter my photo/video collection which had more than 50k files and ocuppied 300GB of disk space.
+I made this tool to declatter my photo/video collection which had more than 50k files and ocuppied 300GB of disk space.
 
 For comparing files it uses CRC32 algorithm and checks file sizes. By default it reads only first 1024 bytes of each file and show directories containing at least 10 files in common. This behaviour could be configured with command line arguments (see options).
 
