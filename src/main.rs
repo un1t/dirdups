@@ -1,6 +1,7 @@
 use crc32fast::Hasher;
 use humanize_rs::bytes::Bytes;
 use indicatif::ProgressBar;
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, prelude::*};
@@ -42,6 +43,14 @@ struct Cli {
 
     #[structopt(long, required = true, index = 1, help = "Directories to search")]
     directories: Vec<String>,
+}
+
+struct Duplicate {
+    dir1: String,
+    dir2: String,
+    dir1_files_number: usize,
+    dir2_files_number: usize,
+    intersection: usize,
 }
 
 fn get_hash(filename: String, filesize: usize, read_first_bytes: usize) -> io::Result<u64> {
@@ -147,12 +156,12 @@ fn load_files_info(
     progress_bar.finish();
 }
 
-fn print_duplicates(
-    min_intersection: usize,
+fn find_duplicates(
     hash_dirs: &HashMap<u64, HashSet<String>>,
     dir_hashes: &HashMap<String, HashSet<u64>>,
-) {
-    let mut printed = HashSet::new();
+) -> Vec<Duplicate> {
+    let mut duplicates = Vec::new();
+    let mut added = HashSet::new();
 
     for (_, dirs) in hash_dirs.iter() {
         let mut dirs_iter = dirs.iter();
@@ -167,25 +176,38 @@ fn print_duplicates(
             } else {
                 (prev_dir, dir)
             };
-            if printed.contains(&t) {
+            if added.contains(&t) {
                 continue;
             }
             let files = dir_hashes.get(dir).unwrap();
             let prev_files = dir_hashes.get(prev_dir).unwrap();
             let intersection: HashSet<_> = files.intersection(&prev_files).collect();
-            if intersection.len() >= min_intersection {
-                println!(
-                    "{}: {} - {}: {} | {}",
-                    dir,
-                    files.len(),
-                    prev_dir,
-                    prev_files.len(),
-                    intersection.len()
-                )
-            }
-            printed.insert(t);
+            let duplicate = Duplicate {
+                dir1: String::from(dir),
+                dir2: String::from(prev_dir),
+                dir1_files_number: files.len(),
+                dir2_files_number: prev_files.len(),
+                intersection: intersection.len(),
+            };
+            duplicates.push(duplicate);
+
+            added.insert(t);
             prev_dir = dir;
         }
+    }
+    duplicates
+}
+
+fn print_duplicates(duplicates: &Vec<Duplicate>) {
+    for duplicate in duplicates.iter() {
+        println!(
+            "{}: {} - {}: {} | {}",
+            duplicate.dir1,
+            duplicate.dir1_files_number,
+            duplicate.dir2,
+            duplicate.dir2_files_number,
+            duplicate.intersection
+        )
     }
 }
 
@@ -219,5 +241,13 @@ fn main() {
 
     let files = get_files(args.directories);
     load_files_info(&files, min_size, head, &mut hash_dirs, &mut dir_hashes);
-    print_duplicates(args.min_intersection, &hash_dirs, &dir_hashes);
+
+    let mut duplicates: Vec<Duplicate> = find_duplicates(&hash_dirs, &dir_hashes)
+        .into_iter()
+        .filter(|x| x.intersection >= args.min_intersection)
+        .collect();
+
+    duplicates.sort_by_key(|x| Reverse(x.intersection));
+
+    print_duplicates(&duplicates);
 }
