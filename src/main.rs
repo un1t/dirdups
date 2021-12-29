@@ -57,7 +57,7 @@ fn get_crc32_checksum(filename: String, read_first_bytes: usize) -> io::Result<u
 
     let mut bytes_readed = 0;
     loop {
-        if read_first_bytes >= 1000 && bytes_readed >= read_first_bytes {
+        if read_first_bytes > 0 && bytes_readed >= read_first_bytes {
             break;
         }
         let n = f.read(&mut buffer[..])?;
@@ -200,7 +200,7 @@ fn main() {
         }
     };
 
-    let head = match args.head.parse::<Bytes>() {
+    let mut head = match args.head.parse::<Bytes>() {
         Ok(some) => some.size(),
         Err(_) => {
             eprintln!("Invalid value for '--head': {}.", args.min_size);
@@ -208,6 +208,7 @@ fn main() {
         }
     };
     if head > 0 && head < 1000 {
+        head = 1024;
         eprintln!(
             "Warning!: --min-size values >0 and <1000 are ignored. Default value of 1024 is used."
         );
