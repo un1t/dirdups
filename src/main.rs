@@ -1,6 +1,7 @@
 use crc32fast::Hasher;
 use humanize_rs::bytes::Bytes;
 use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -110,6 +111,9 @@ fn load_files_info(
     println!("Found: {} files", files_cnt);
 
     let progress_bar = ProgressBar::new(files_cnt as u64);
+    progress_bar.set_style(
+        ProgressStyle::default_bar().template("[{elapsed_precise}] {bar:80} {pos}/{len}"),
+    );
 
     for file in files.iter() {
         let filesize = match get_file_size(file) {
