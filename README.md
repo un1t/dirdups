@@ -2,14 +2,14 @@
 
 dirdups is CLI tool that searches different directories containing the same files.
 
-I made this tool to declatter my photo/video collection which had more than 50k files and ocuppied 300GB of disk space.
+I made this tool to declatter my photo/video collection which had more than 160k files and ocuppied 750GB of disk space.
 
 For comparing files it uses CRC32 algorithm and checks file sizes. By default it reads only first 1024 bytes of each file and show directories containing at least 10 files in common. This behaviour could be configured with command line arguments (see options).
 
 
 ## Install
-1. Install Rust https://www.rust-lang.org/tools/install
-2. Build from source
+1. [Install Rust](https://www.rust-lang.org/tools/install)
+2. Build dirdups from source
 ```
 git clone git@github.com:un1t/dirdups.git
 cd dirdups
@@ -23,12 +23,12 @@ target/release/**dirdups** is a binary executable file that now can be copied to
 $ dirdups ~/Pictures
 ```
 
-2. Multiple locations:
+2. Search in multiple locations:
 ```
 $ dirdups ~/Pictures ~/Documents
 ```
 
-3. Minimum file size:
+3. Ignore files less than 100KB:
 ```
 $ dirdups ~/Pictures -m 100KB
 ```
