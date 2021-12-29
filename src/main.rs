@@ -1,5 +1,6 @@
 use crc32fast::Hasher;
 use humanize_rs::bytes::Bytes;
+use indicatif::ProgressBar;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, prelude::*};
@@ -99,7 +100,8 @@ fn load_files_info(
     let files_cnt = files.len();
     println!("Found: {} files", files_cnt);
 
-    let mut i = 0;
+    let progress_bar = ProgressBar::new(files_cnt as u64);
+
     for file in files.iter() {
         let filesize = match get_file_size(file) {
             Ok(filesize) => filesize,
@@ -140,13 +142,9 @@ fn load_files_info(
             dir_hashes.insert(dir, hashes);
         }
 
-        if i % (files_cnt / 100) == 0 {
-            print!(".");
-            io::stdout().flush().ok();
-        }
-        i += 1;
+        progress_bar.inc(1);
     }
-    println!("");
+    progress_bar.finish();
 }
 
 fn print_duplicates(
